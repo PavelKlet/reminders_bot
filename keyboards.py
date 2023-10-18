@@ -6,7 +6,7 @@ from aiogram.utils.keyboard import (
     KeyboardButton
 )
 
-interval_hour = InlineKeyboardButton(text="Интервал час", callback_data="60")
+interval_hour = InlineKeyboardButton(text="Интервал минута", callback_data="1")
 interval_day = InlineKeyboardButton(text="Интервал сутки",
                                     callback_data="1440")
 user_config = InlineKeyboardButton(text="Ввести вручную",

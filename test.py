@@ -1,15 +1,15 @@
 import logging
 import asyncio
-import time
 from aiogram import Router, F
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import CommandStart
 from aiogram.types import Message, CallbackQuery
 import psycopg2
-import schedule
-from aiogram.filters import StateFilter
-from aiogram.fsm.state import default_state
-from keybords import builder
+from keyboards import builder
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+
+scheduler = AsyncIOScheduler()
 
 db_connection = psycopg2.connect(
     user="postgres",
@@ -27,7 +27,6 @@ dp = Dispatcher(bot=bot)
 my_router = Router(name=__name__)
 
 
-# Функция для отправки уведомления
 async def send_notification(user_id, text):
     try:
         await bot.send_message(user_id, text)
@@ -83,25 +82,32 @@ async def handle_text(message: Message):
     #     await bot.send_message(user_id, text="Чтобы начать, отправьте /start.")
 
 
-@dp.callback_query(F.data == "60")
-async def process_callback(callback_query: CallbackQuery, callback_data="60"):
+@dp.callback_query(F.data == "1")
+async def process_callback(callback_query: CallbackQuery, callback_data="1"):
     print(callback_query.data)
     await callback_query.answer("Напоминание поставлено")
     int_data = int(callback_data)
-    schedule.every(int_data).minutes.do(
-        send_notification, callback_query.from_user.id, "Время для уведомления!")
+    scheduler.add_job(send_notification, "interval",
+                      minutes=int(callback_query.data),
+                      args=[callback_query.from_user.id,
+                            "Время для уведомления"
+                            ]
+
+                      )
 
 
-def run_scheduler():
-    while True:
-        schedule.run_pending()
-        time.sleep(1)
+# async def run_scheduler():
+#     while True:
+#         schedule.run_pending()
 
+#         await asyncio.sleep(1)
 
 async def on_start(dp):
     await dp.start_polling(bot)
 
 if __name__ == '__main__':
+
     loop = asyncio.get_event_loop()
-    loop.create_task(on_start(dp))
+    scheduler.start()
+    bot_task = loop.create_task(on_start(dp))
     loop.run_forever()
