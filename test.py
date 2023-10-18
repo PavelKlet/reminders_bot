@@ -1,14 +1,15 @@
 import logging
 import asyncio
 import time
-from aiogram import Router
+from aiogram import Router, F
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import CommandStart
 from aiogram.types import Message, CallbackQuery
 import psycopg2
 import schedule
+from aiogram.filters import StateFilter
+from aiogram.fsm.state import default_state
 from keybords import builder
-from aiogram3_calendar import DialogCalendar, SimpleCalendar
 
 db_connection = psycopg2.connect(
     user="postgres",
@@ -46,30 +47,28 @@ async def cmd_start(message: types.Message):
         user_last_name,
         user_username,
     )
-    user_settings[user_id] = {"time": None, "interval": None}
-
     # # sql_query = """
     # #    INSERT INTO users (user_id, first_name, last_name, username, created_at)
     # #    VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
     # #    """
     # cursor.execute(sql_query, data)
     # db_connection.commit())
-    await message.answer("Привет! Я бот, и я готов к работе.")
+    await message.answer("Привет! Отправьте текст для напоминания")
 
     # Запускаем календарь
-    await send_notification(message.from_user.id, "Текст уведомления")
-
-
-
+    # await send_notification(message.from_user.id, "Текст уведомления")
 
 
 @dp.message()
 async def handle_text(message: Message):
-    await message.answer("Please select a date: ",
-                         reply_markup=await SimpleCalendar().start_calendar())
-    # user_id = message.from_user.id
-    # text = message.text
-    # if user_id in user_settings:
+    user_id = message.from_user.id
+    text = message.text
+    user_settings[user_id] = {"text": text}
+    await message.answer(
+        "Выберите интервал напоминания",
+        reply_markup=builder.as_markup()
+    )
+
     #     if not user_settings[user_id]["time"]:
     #         user_settings[user_id]["time"] = text
     #         await bot.send_message(user_id, "Отлично! Теперь укажите интервал в минутах.")
@@ -81,14 +80,16 @@ async def handle_text(message: Message):
     #         except ValueError:
     #             await bot.send_message(user_id, "Пожалуйста, укажите корректный интервал в минутах.")
     # else:
-    #     await bot.send_message(user_id, reply_markup=builder.as_markup(), text="Чтобы начать, отправьте /start.")
+    #     await bot.send_message(user_id, text="Чтобы начать, отправьте /start.")
 
 
-@dp.callback_query()
-async def process_callback(callback_query: CallbackQuery, callback_data, state):
-    selected, date_out_res = await DialogCalendar().process_selection(
-        callback_query, callback_data)
-    print(selected, date_out_res)
+@dp.callback_query(F.data == "60")
+async def process_callback(callback_query: CallbackQuery, callback_data="60"):
+    print(callback_query.data)
+    await callback_query.answer("Напоминание поставлено")
+    int_data = int(callback_data)
+    schedule.every(int_data).minutes.do(
+        send_notification, callback_query.from_user.id, "Время для уведомления!")
 
 
 def run_scheduler():
