@@ -7,7 +7,14 @@ else:
     load_dotenv()
 
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+TOKEN = os.getenv("TOKEN")
+USER = os.getenv("USER")
+PASSWORD = os.getenv("PASSWORD")
+DBNAME = os.getenv("DBNAME")
+HOST = os.getenv("HOST")
+PORT = os.getenv("PORT")
+
+
 
 
 

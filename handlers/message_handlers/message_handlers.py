@@ -1,34 +1,17 @@
-import logging
-import asyncio
-from aiogram import Router, F
-from aiogram import Bot, Dispatcher, types
+from aiogram import types
 from aiogram.filters import CommandStart
-from aiogram.types import Message, CallbackQuery
-import psycopg2
+from aiogram.fsm.context import FSMContext
+
+from loader import dp, user_settings
 from keyboards.keyboards import builder
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from aiogram import Router
+from state.states import Form
+
+router = Router(name=__name__)
 
 
-scheduler = AsyncIOScheduler()
-
-db_connection = psycopg2.connect(
-    user="postgres",
-    password="123",
-    dbname="bot",
-    host="localhost",
-    port=5432
-)
-user_settings = {}
-cursor = db_connection.cursor()
-# Инициализация бота
-API_TOKEN = "6599994909:AAEvTLRW6QzXeZjm07Zzr8Bpjjnm0ERYbfE"
-bot = Bot(token=API_TOKEN)
-dp = Dispatcher(bot=bot)
-my_router = Router(name=__name__)
-
-
-@dp.message(CommandStart())
-async def cmd_start(message: types.Message):
+@router.message(CommandStart())
+async def cmd_start(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     user_first_name = message.from_user.first_name
     user_last_name = message.from_user.last_name
@@ -39,6 +22,7 @@ async def cmd_start(message: types.Message):
         user_last_name,
         user_username,
     )
+    await state.set_state(Form.test)
     # # sql_query = """
     # #    INSERT INTO users (user_id, first_name, last_name, username, created_at)
     # #    VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
@@ -51,8 +35,8 @@ async def cmd_start(message: types.Message):
     # await send_notification(message.from_user.id, "Текст уведомления")
 
 
-@dp.message()
-async def handle_text(message: Message):
+@router.message()
+async def handle_text(message: types.Message):
     user_id = message.from_user.id
     text = message.text
     user_settings[user_id] = {"text": text}
@@ -73,34 +57,3 @@ async def handle_text(message: Message):
     #             await bot.send_message(user_id, "Пожалуйста, укажите корректный интервал в минутах.")
     # else:
     #     await bot.send_message(user_id, text="Чтобы начать, отправьте /start.")
-
-
-@dp.callback_query(F.data == "1")
-async def process_callback(callback_query: CallbackQuery, callback_data="1"):
-    print(callback_query.data)
-    await callback_query.answer("Напоминание поставлено")
-    int_data = int(callback_data)
-    scheduler.add_job(send_notification, "interval",
-                      minutes=int(callback_query.data),
-                      args=[callback_query.from_user.id,
-                            "Время для уведомления"
-                            ]
-
-                      )
-
-
-# async def run_scheduler():
-#     while True:
-#         schedule.run_pending()
-
-#         await asyncio.sleep(1)
-
-async def on_start(dp):
-    await dp.start_polling(bot)
-
-if __name__ == '__main__':
-
-    loop = asyncio.get_event_loop()
-    scheduler.start()
-    bot_task = loop.create_task(on_start(dp))
-    loop.run_forever()
