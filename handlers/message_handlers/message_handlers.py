@@ -105,12 +105,10 @@ async def handle_date(message: types.Message, state: FSMContext):
 
     try:
         user_timezone = db.select_time_zone(message.from_user.id)
-        print("таймзона", user_timezone)
         local_tz = timezone(user_timezone)
         date_and_time = local_tz.localize(
             datetime.strptime(message.text, "%d.%m.%Y %H %M"))
         current_date = datetime.now(timezone(user_timezone))
-        print("получена", date_and_time, "текущая", current_date)
         await message.answer("Выберите вид напоминания.",
                              reply_markup=type_reminder.as_markup()
                              )
@@ -119,8 +117,7 @@ async def handle_date(message: types.Message, state: FSMContext):
         interval = date_and_time - current_date
         await state.update_data(date_and_time=date_and_time, interval=interval)
         await state.set_state(Form.type_reminder)
-    except Exception as ex:
-        print(ex)
+    except Exception:
         await message.answer("Что-то пошло не так, "
                              "проверьте правильность введённых"
                              " вами данных и попробуйте ещё раз.")
