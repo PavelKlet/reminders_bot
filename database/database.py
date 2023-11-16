@@ -61,15 +61,11 @@ class Database:
 
         try:
             await bot.send_message(user_id, text)
-            print("Пришло", user_id, text, reminder_code, replay, cron)
             if replay:
                 current_date = datetime.datetime.now()
                 (pk, user_pk, reminder_text,
                  reminder_date, interval,
                  uniq_code, replay, cron) = self.get_reminder(reminder_code)
-                print("Ушло", pk, user_id, reminder_text,
-                      reminder_date, interval,
-                      uniq_code, replay)
                 self.scheduler_add_job(
                     user_id, reminder_text,
                     current_date + interval,
@@ -131,7 +127,6 @@ class Database:
                         ],
                         id=uniq_code
                     )
-                    print(reminder_date, interval, user_id)
             scheduler.start()
 
     def scheduler_add_job(
@@ -150,7 +145,6 @@ class Database:
             user_pk_query = "SELECT id FROM users WHERE user_id = %s"
             self.cursor.execute(user_pk_query, (user_id,))
             pk_user = self.cursor.fetchone()
-            print("user id", pk_user)
             new_uuid = str(uuid.uuid4())
             self.cursor.execute("INSERT INTO reminders "
                                 "(scheduled_time, user_id, "
@@ -164,8 +158,6 @@ class Database:
                                  interval, text, new_uuid, replay, cron))
             (scheduled_time, current_id_user,
              interval_timedelta, text, replay, cron) = self.cursor.fetchone()
-            print(">>>>>>>>", scheduled_time, current_id_user, text,
-                  interval_timedelta, replay)
             if cron:
                 trigger = CronTrigger(
                     hour=scheduled_time.hour,
@@ -250,10 +242,8 @@ class Database:
                                     (reminder_code,))
                 try:
                     scheduler.remove_job(reminder_code)
-                except JobLookupError as apserror:
-                    print("Нет такой задачи", apserror)
-        else:
-            print("cron == True")
+                except JobLookupError:
+                    pass
 
     def select_time_zone(self, user_id):
 
