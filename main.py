@@ -1,29 +1,24 @@
 import asyncio
+import logging
+from logging.handlers import RotatingFileHandler
 
-from loader import bot, scheduler, dp, cursor
-from other_functions import notification
+from loader import bot, dp
 from handlers.message_handlers import message_handlers
 from handlers.callback_handlers import callback_handlers
-from apscheduler.triggers.date import DateTrigger
+from database.database import db
 
 
 async def on_start():
-    cursor.execute("SELECT scheduled_time, user_id FROM reminders WHERE LIMIT 1")
-    result = cursor.fetchone()
-    cursor.close()
+    db.start_up()
     dp.include_router(message_handlers.router)
     dp.include_router(callback_handlers.router)
-    trigger = DateTrigger(run_date=result[0])
-    scheduler.add_job(notification, trigger=trigger,
-                      args=[result[0], result[1],
-                            "Время для уведомления"])
-
-    scheduler.start()
-
     await dp.start_polling(bot)
 
-if __name__ == '__main__':
-
+if __name__ == "__main__":
+    # handler = RotatingFileHandler("app.log", maxBytes=100000, backupCount=3)
+    # logging.basicConfig(handlers=[handler], level=logging.INFO,
+    #                     format="%(asctime)s - %(name)s -"
+    #                            " %(levelname)s - %(message)s")
     loop = asyncio.get_event_loop()
     bot_task = loop.create_task(on_start())
     loop.run_forever()
