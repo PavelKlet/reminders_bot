@@ -143,9 +143,10 @@ class Database:
         """Метод добавления задач в scheduler"""
 
         with self.connection_db:
-            user_pk_query = "SELECT id FROM users WHERE user_id = %s"
+            user_pk_query = "SELECT id, timezone FROM users WHERE user_id = %s"
             self.cursor.execute(user_pk_query, (user_id,))
-            pk_user = self.cursor.fetchone()
+            pk_user, u_timezone = self.cursor.fetchone()
+            local_tz = timezone(u_timezone)
             new_uuid = str(uuid.uuid4())
             self.cursor.execute("INSERT INTO reminders "
                                 "(scheduled_time, user_id, "
@@ -162,7 +163,8 @@ class Database:
             if cron:
                 trigger = CronTrigger(
                     hour=scheduled_time.hour,
-                    minute=scheduled_time.minute
+                    minute=scheduled_time.minute,
+                    timezone=local_tz
                 )
             else:
                 trigger = DateTrigger(run_date=scheduled_time)

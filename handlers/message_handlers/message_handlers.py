@@ -109,11 +109,11 @@ async def handle_date(message: types.Message, state: FSMContext):
         date_and_time = local_tz.localize(
             datetime.strptime(message.text, "%d.%m.%Y %H %M"))
         current_date = datetime.now(timezone(user_timezone))
+        if current_date >= date_and_time:
+            raise DateError("Дата раньше настоящего времени.")
         await message.answer("Выберите вид напоминания.",
                              reply_markup=type_reminder.as_markup()
                              )
-        if current_date >= date_and_time:
-            raise DateError("Дата раньше настоящего времени.")
         interval = date_and_time - current_date
         await state.update_data(date_and_time=date_and_time, interval=interval)
         await state.set_state(Form.type_reminder)
