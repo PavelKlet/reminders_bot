@@ -152,7 +152,7 @@ class Database:
                                 f"(scheduled_time, user_id, "
                                 f"interval_data, reminder_text, "
                                 f"uniq_code, replay, cron) "
-                                f"VALUES (timezone({u_timezone}, %s),"
+                                f"VALUES (timezone('{u_timezone}', %s),"
                                 f" %s, %s, %s, %s, %s, %s) "
                                 f"RETURNING "
                                 f"scheduled_time, user_id, "
