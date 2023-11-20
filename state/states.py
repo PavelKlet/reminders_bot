@@ -7,5 +7,6 @@ class Form(StatesGroup):
     date_selection = State()
     type_reminder = State()
     delete_reminder = State()
+    switch_timezone = State()
 
 

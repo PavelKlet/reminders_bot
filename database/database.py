@@ -1,4 +1,5 @@
 import datetime
+import logging
 
 import psycopg2
 from apscheduler.jobstores.base import JobLookupError
@@ -7,7 +8,6 @@ from apscheduler.triggers.cron import CronTrigger
 from pytz import timezone
 
 from config_data.config import USER, DBNAME, HOST, PASSWORD, PORT
-import logging
 from loader import scheduler, bot
 import uuid
 
@@ -55,6 +55,7 @@ class Database:
             reminder_code,
             replay,
             cron,
+            u_timezone
     ):
 
         """Метод отправки уведомлений пользователю"""
@@ -62,13 +63,15 @@ class Database:
         try:
             await bot.send_message(user_id, text)
             if replay:
-                current_date = datetime.datetime.now()
                 (pk, user_pk, reminder_text,
                  reminder_date, interval,
                  uniq_code, replay, cron) = self.get_reminder(reminder_code)
+                user_timezone = timezone(u_timezone)
+                date_and_time = datetime.datetime.now().astimezone(
+                    user_timezone) + interval
                 self.scheduler_add_job(
                     user_id, reminder_text,
-                    current_date + interval,
+                    date_and_time,
                     interval,
                     replay,
                     cron
@@ -102,6 +105,7 @@ class Database:
                  ) in result:
                 local_tz = timezone(u_timezone)
                 date_and_time = local_tz.localize(reminder_date)
+
                 if (datetime.datetime.now(timezone(u_timezone))
                         >= date_and_time) and not cron:
                     self.cursor.execute("DELETE FROM reminders "
@@ -115,7 +119,8 @@ class Database:
                             timezone=local_tz
                         )
                     else:
-                        trigger = DateTrigger(run_date=reminder_date)
+                        trigger = DateTrigger(run_date=date_and_time)
+
                     scheduler.add_job(
                         self.send_notification,
                         trigger=trigger,
@@ -124,10 +129,12 @@ class Database:
                             reminder_text,
                             uniq_code,
                             replay,
-                            cron
+                            cron,
+                            u_timezone
                         ],
                         id=uniq_code
                     )
+
             scheduler.start()
 
     def scheduler_add_job(
@@ -168,7 +175,8 @@ class Database:
                     timezone=local_tz
                 )
             else:
-                trigger = DateTrigger(run_date=scheduled_time)
+                date_and_time = local_tz.localize(scheduled_time)
+                trigger = DateTrigger(run_date=date_and_time)
             scheduler.add_job(
                 self.send_notification,
                 trigger=trigger,
@@ -177,7 +185,8 @@ class Database:
                     text,
                     new_uuid,
                     replay,
-                    cron
+                    cron,
+                    u_timezone
                 ],
                 id=new_uuid
             )
@@ -259,6 +268,14 @@ class Database:
                 (user_id,)
             )
             return self.cursor.fetchone()[0]
+
+    def update_timezone(self, user_id, u_timezone):
+        with self.connection_db:
+            self.cursor.execute("""
+                UPDATE users
+                SET timezone = %s
+                WHERE user_id = %s;
+            """, (u_timezone, user_id))
 
 
 db = Database()

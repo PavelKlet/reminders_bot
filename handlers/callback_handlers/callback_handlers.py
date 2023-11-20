@@ -8,6 +8,17 @@ from state.states import Form
 router = Router(name=__name__)
 
 
+@router.callback_query(StateFilter(Form.switch_timezone))
+async def process_switch_timezone(
+        callback_query: CallbackQuery,
+        state: FSMContext
+):
+    db.update_timezone(callback_query.from_user.id, callback_query.data)
+    await callback_query.answer("Часовой пояс изменён", show_alert=True)
+    await callback_query.message.delete()
+    await state.clear()
+
+
 @router.callback_query(StateFilter(Form.delete_reminder))
 async def process_delete_reminder(callback_query: CallbackQuery):
 

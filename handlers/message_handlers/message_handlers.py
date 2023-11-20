@@ -1,3 +1,6 @@
+import logging
+
+
 from aiogram import types
 from aiogram.filters import CommandStart, StateFilter, Command
 from aiogram.fsm.context import FSMContext
@@ -16,13 +19,24 @@ class DateError(Exception):
     pass
 
 
+@router.message(Command("timezone"))
+async def cmd_timezone(message: types.Message, state: FSMContext):
+    if db.check_user(message.from_user.id):
+        await message.answer(
+            "Выберите один из вариантов:",
+            reply_markup=keyboard_time_zones.as_markup()
+        )
+        await state.set_state(Form.switch_timezone)
+
+
 @router.message(Command("help"))
 async def cmd_delete(message: types.Message, state: FSMContext):
 
     """Хендлер команды /help"""
 
     await message.answer("/start - начать работу бота\n/delete - "
-                         "удалить напоминание")
+                         "удалить напоминание\n/timezone - "
+                         "поменять часовой пояс")
 
 
 @router.message(Command("delete"))
@@ -117,8 +131,9 @@ async def handle_date(message: types.Message, state: FSMContext):
         interval = date_and_time - current_date
         await state.update_data(date_and_time=date_and_time, interval=interval)
         await state.set_state(Form.type_reminder)
-    except Exception:
+    except Exception as ex:
         await message.answer("Что-то пошло не так, "
                              "проверьте правильность введённых"
                              " вами данных и попробуйте ещё раз.")
+        logging.error(ex)
 
