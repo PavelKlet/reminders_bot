@@ -111,7 +111,8 @@ class Database:
                     if cron:
                         trigger = CronTrigger(
                             hour=reminder_date.hour,
-                            minute=reminder_date.minute
+                            minute=reminder_date.minute,
+                            timezone=local_tz
                         )
                     else:
                         trigger = DateTrigger(run_date=reminder_date)
