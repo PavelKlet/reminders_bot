@@ -148,14 +148,15 @@ class Database:
             pk_user, u_timezone = self.cursor.fetchone()
             local_tz = timezone(u_timezone)
             new_uuid = str(uuid.uuid4())
-            self.cursor.execute("INSERT INTO reminders "
-                                "(scheduled_time, user_id, "
-                                "interval_data, reminder_text, "
-                                "uniq_code, replay, cron) "
-                                "VALUES (%s, %s, %s, %s, %s, %s, %s) "
-                                "RETURNING "
-                                "scheduled_time, user_id, "
-                                "interval_data, reminder_text, replay, cron",
+            self.cursor.execute(f"INSERT INTO reminders "
+                                f"(scheduled_time, user_id, "
+                                f"interval_data, reminder_text, "
+                                f"uniq_code, replay, cron) "
+                                f"VALUES (timezone({u_timezone}), %s),"
+                                f" %s, %s, %s, %s, %s, %s) "
+                                f"RETURNING "
+                                f"scheduled_time, user_id, "
+                                f"interval_data, reminder_text, replay, cron",
                                 (scheduled_time, pk_user,
                                  interval, text, new_uuid, replay, cron))
             (scheduled_time, current_id_user,
