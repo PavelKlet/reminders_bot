@@ -66,9 +66,9 @@ class Database:
                 (pk, user_pk, reminder_text,
                  reminder_date, interval,
                  uniq_code, replay, cron) = self.get_reminder(reminder_code)
-                user_timezone = timezone(u_timezone)
-                date_and_time = datetime.datetime.now().astimezone(
-                    user_timezone) + interval
+                date_and_time = (
+                        datetime.datetime.now(timezone(u_timezone)) + interval
+                )
                 self.scheduler_add_job(
                     user_id, reminder_text,
                     date_and_time,
