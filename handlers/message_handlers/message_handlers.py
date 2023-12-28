@@ -1,6 +1,5 @@
 import logging
 
-
 from aiogram import types
 from aiogram.filters import CommandStart, StateFilter, Command
 from aiogram.fsm.context import FSMContext
@@ -136,4 +135,3 @@ async def handle_date(message: types.Message, state: FSMContext):
                              "проверьте правильность введённых"
                              " вами данных и попробуйте ещё раз.")
         logging.error(ex)
-

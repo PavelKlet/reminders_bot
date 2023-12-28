@@ -39,7 +39,6 @@ async def process_timezone(callback_query: CallbackQuery,
 
     """Хендлер выбора часового пояса"""
 
-    print(callback_query.data)
     data = (
         callback_query.from_user.id,
         callback_query.from_user.first_name,
