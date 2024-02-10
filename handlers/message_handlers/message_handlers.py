@@ -20,7 +20,7 @@ class DateError(Exception):
 
 @router.message(Command("timezone"))
 async def cmd_timezone(message: types.Message, state: FSMContext):
-    if db.check_user(message.from_user.id):
+    if await db.check_user(message.from_user.id):
         await message.answer(
             "Выберите один из вариантов:",
             reply_markup=keyboard_time_zones.as_markup()
@@ -43,7 +43,7 @@ async def cmd_delete(message: types.Message, state: FSMContext):
 
     """Хендлер команды /delete"""
 
-    full_reminders = db.get_reminders(message.from_user.id)
+    full_reminders = await db.get_reminders(message.from_user.id)
     if full_reminders:
         builder = InlineKeyboardBuilder()
         for reminder, uniq_code, cron in full_reminders:
@@ -75,7 +75,7 @@ async def cmd_start(message: types.Message, state: FSMContext):
     """Хендлер команды /start"""
 
     user_id = message.from_user.id
-    user = db.check_user(user_id)
+    user = await db.check_user(user_id)
     if not user:
         await message.answer(
             "Привет! Для начала нужно определить ваш часовой пояс, "
@@ -117,7 +117,7 @@ async def handle_date(message: types.Message, state: FSMContext):
     """Хендлер полученной даты"""
 
     try:
-        user_timezone = db.select_time_zone(message.from_user.id)
+        user_timezone = await db.select_time_zone(message.from_user.id)
         local_tz = timezone(user_timezone)
         date_and_time = local_tz.localize(
             datetime.strptime(message.text, "%d.%m.%Y %H %M"))

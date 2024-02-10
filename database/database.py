@@ -1,7 +1,7 @@
 import datetime
 import logging
 
-import psycopg2
+import asyncpg
 from apscheduler.jobstores.base import JobLookupError
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.cron import CronTrigger
@@ -39,14 +39,16 @@ reminders = """
 
 class Database:
     def __init__(self):
-        self.connection_db = psycopg2.connect(
+        self.pool = None
+
+    async def initialize(self):
+        self.pool = await asyncpg.create_pool(
             user=USER,
             password=PASSWORD,
-            dbname=DBNAME,
+            database=DBNAME,
             host=HOST,
             port=PORT
         )
-        self.cursor = self.connection_db.cursor()
 
     async def send_notification(
             self,
@@ -65,26 +67,26 @@ class Database:
             if replay:
                 (pk, user_pk, reminder_text,
                  reminder_date, interval,
-                 uniq_code, replay, cron) = self.get_reminder(reminder_code)
+                 uniq_code, replay, cron) = await self.get_reminder(reminder_code)
                 date_and_time = (
                         datetime.datetime.now(timezone(u_timezone)) + interval
                 )
-                self.scheduler_add_job(
+                await self.scheduler_add_job(
                     user_id, reminder_text,
                     date_and_time,
                     interval,
                     replay,
                     cron
                 )
-            self.delete_reminder(reminder_code, cron=cron)
+            await self.delete_reminder(reminder_code, cron=cron)
         except Exception as e:
             logging.error(f"Ошибка при отправке уведомления: {e}")
 
-    def start_up(self):
+    async def start_up(self):
 
         """Метод для запуска всех напоминаний при запуске бота"""
 
-        with self.connection_db:
+        async with self.pool.acquire() as connection:
             query = """
                     SELECT r.scheduled_time, r.interval_data, r.reminder_text,
                     u.user_id, u.timezone, r.uniq_code, r.replay, r.cron
@@ -92,25 +94,24 @@ class Database:
                     JOIN users u ON r.user_id = u.id
                     ORDER BY r.scheduled_time DESC
                 """
-            self.cursor.execute(query)
-            result = self.cursor.fetchall()
-            for (reminder_date,
-                 interval,
-                 reminder_text,
-                 user_id,
-                 u_timezone,
-                 uniq_code,
-                 replay,
-                 cron
-                 ) in result:
+            result = await connection.fetch(query)
+
+            for row in result:
+                reminder_date = row["scheduled_time"]
+                reminder_text = row["reminder_text"]
+                user_id = row["user_id"]
+                u_timezone = row["timezone"]
+                uniq_code = row["uniq_code"]
+                replay = row["replay"]
+                cron = row["cron"]
                 local_tz = timezone(u_timezone)
                 date_and_time = local_tz.localize(reminder_date)
 
-                if (datetime.datetime.now(timezone(u_timezone))
-                        >= date_and_time) and not cron:
-                    self.cursor.execute("DELETE FROM reminders "
-                                        "WHERE uniq_code=%s",
-                                        (uniq_code,))
+                if (datetime.datetime.now(
+                        timezone(u_timezone)) >= date_and_time) and not cron:
+                    await connection.execute("DELETE FROM reminders "
+                                             "WHERE uniq_code=$1",
+                                             uniq_code)
                 else:
                     if cron:
                         trigger = CronTrigger(
@@ -135,9 +136,9 @@ class Database:
                         id=uniq_code
                     )
 
-            scheduler.start()
+        scheduler.start()
 
-    def scheduler_add_job(
+    async def scheduler_add_job(
             self,
             user_id,
             text,
@@ -149,25 +150,38 @@ class Database:
 
         """Метод добавления задач в scheduler"""
 
-        with self.connection_db:
-            user_pk_query = "SELECT id, timezone FROM users WHERE user_id = %s"
-            self.cursor.execute(user_pk_query, (user_id,))
-            pk_user, u_timezone = self.cursor.fetchone()
+        async with self.pool.acquire() as connection:
+            user_pk_query = "SELECT id, timezone FROM users WHERE user_id = $1"
+            pk_user, u_timezone = await connection.fetchrow(user_pk_query,
+                                                            user_id)
             local_tz = timezone(u_timezone)
             new_uuid = str(uuid.uuid4())
-            self.cursor.execute(f"INSERT INTO reminders "
-                                f"(scheduled_time, user_id, "
-                                f"interval_data, reminder_text, "
-                                f"uniq_code, replay, cron) "
-                                f"VALUES (timezone('{u_timezone}', %s),"
-                                f" %s, %s, %s, %s, %s, %s) "
-                                f"RETURNING "
-                                f"scheduled_time, user_id, "
-                                f"interval_data, reminder_text, replay, cron",
-                                (scheduled_time, pk_user,
-                                 interval, text, new_uuid, replay, cron))
-            (scheduled_time, current_id_user,
-             interval_timedelta, text, replay, cron) = self.cursor.fetchone()
+
+            insert_query = """
+                INSERT INTO reminders 
+                (scheduled_time, user_id,
+                interval_data, reminder_text,
+                uniq_code, replay, cron)
+                VALUES (timezone($1, $2), $3, $4, $5, $6, $7, $8)
+                RETURNING scheduled_time, user_id,
+                interval_data, reminder_text, replay, cron
+            """
+
+            params = (
+                u_timezone,
+                scheduled_time,
+                pk_user,
+                interval,
+                text,
+                new_uuid,
+                replay,
+                cron
+            )
+
+            row = await connection.fetchrow(insert_query, *params)
+
+            (scheduled_time, user_pk,
+             interval_data, reminder_text, replay, cron) = row.values()
             if cron:
                 trigger = CronTrigger(
                     hour=scheduled_time.hour,
@@ -190,92 +204,87 @@ class Database:
                 ],
                 id=new_uuid
             )
-            self.connection_db.commit()
 
-    def create_user(self, data):
+    async def create_user(self, data):
 
         """Метод создания пользователя"""
 
-        with self.connection_db:
+        async with self.pool.acquire() as connection:
             query = """
                 INSERT INTO users 
                 (user_id, first_name, last_name, username, timezone)
-                VALUES (%s, %s, %s, %s, %s)
+                VALUES ($1, $2, $3, $4, $5)
             """
-            self.cursor.execute(query, data)
-            self.connection_db.commit()
+            await connection.execute(query, *data)
 
-    def check_user(self, user_id):
+    async def check_user(self, user_id):
 
         """Метод проверки пользователя"""
 
-        with self.connection_db:
-            self.cursor.execute(
-                "SELECT * FROM users WHERE user_id = %s",
-                (user_id,)
-            )
-            return self.cursor.fetchone()
+        async with self.pool.acquire() as connection:
+            query = """
+                SELECT * FROM users WHERE user_id = $1
+            """
+            return await connection.fetchrow(query, user_id)
 
-    def get_reminders(self, user_id):
+    async def get_reminders(self, user_id):
 
-        """Метод получения напоминаний из бд"""
+        """Метод получения напоминаний из базы данных"""
 
-        with self.connection_db:
-            self.cursor.execute(
-                """
+        async with self.pool.acquire() as connection:
+            query = """
                 SELECT reminders.reminder_text, 
                 reminders.uniq_code, 
                 reminders.cron
                 FROM reminders
                 JOIN users ON reminders.user_id = users.id
-                WHERE users.user_id = %s
-                """,
-                (user_id,)
-            )
-        return self.cursor.fetchall()
+                WHERE users.user_id = $1
+            """
+            return await connection.fetch(query, user_id)
 
-    def get_reminder(self, reminder_code):
+    async def get_reminder(self, reminder_code):
 
-        """Метод получения напоминания из бд"""
+        """Метод получения напоминания из базы данных"""
 
-        with self.connection_db:
-            self.cursor.execute("SELECT * FROM reminders"
-                                " WHERE uniq_code = %s", (reminder_code,))
-            reminder = self.cursor.fetchone()
-        return reminder
+        async with self.pool.acquire() as connection:
+            query = "SELECT * FROM reminders WHERE uniq_code = $1"
+            return await connection.fetchrow(query, reminder_code)
 
-    def delete_reminder(self, reminder_code, cron=False):
+    async def delete_reminder(self, reminder_code, cron=False):
 
-        """Метод удаления напоминаний из бд"""
+        """Метод удаления напоминаний из базы данных"""
 
-        if not cron:
-            with self.connection_db:
-                self.cursor.execute("DELETE FROM reminders "
-                                    "WHERE uniq_code=%s",
-                                    (reminder_code,))
+        async with self.pool.acquire() as connection:
+            async with connection.transaction():
+                query = "DELETE FROM reminders WHERE uniq_code = $1"
+                await connection.execute(query, reminder_code)
+
+            if not cron:
                 try:
                     scheduler.remove_job(reminder_code)
                 except JobLookupError:
                     pass
 
-    def select_time_zone(self, user_id):
+    async def select_time_zone(self, user_id):
 
-        """Метод получения часового пояса из бд"""
+        """Метод получения часового пояса из базы данных"""
 
-        with self.connection_db:
-            self.cursor.execute(
-                "SELECT timezone FROM users WHERE user_id = %s",
-                (user_id,)
-            )
-            return self.cursor.fetchone()[0]
+        async with self.pool.acquire() as connection:
+            query = "SELECT timezone FROM users WHERE user_id = $1"
+            row = await connection.fetchrow(query, user_id)
+            return row[0] if row else None
 
-    def update_timezone(self, user_id, u_timezone):
-        with self.connection_db:
-            self.cursor.execute("""
+    async def update_timezone(self, user_id, u_timezone):
+
+        """Метод обновления часового пояса в базе данных"""
+
+        async with self.pool.acquire() as connection:
+            query = """
                 UPDATE users
-                SET timezone = %s
-                WHERE user_id = %s;
-            """, (u_timezone, user_id))
+                SET timezone = $1
+                WHERE user_id = $2
+            """
+            await connection.execute(query, u_timezone, user_id)
 
 
 db = Database()

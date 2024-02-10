@@ -13,7 +13,7 @@ async def process_switch_timezone(
         callback_query: CallbackQuery,
         state: FSMContext
 ):
-    db.update_timezone(callback_query.from_user.id, callback_query.data)
+    await db.update_timezone(callback_query.from_user.id, callback_query.data)
     await callback_query.answer("Часовой пояс изменён", show_alert=True)
     await callback_query.message.delete()
     await state.clear()
@@ -26,9 +26,9 @@ async def process_delete_reminder(callback_query: CallbackQuery):
 
     uniq_code, type_reminder = callback_query.data.split(":")
     if type_reminder == "cron":
-        db.delete_reminder(uniq_code, cron=False)
+        await db.delete_reminder(uniq_code, cron=False)
     else:
-        db.delete_reminder(uniq_code)
+        await db.delete_reminder(uniq_code)
     await callback_query.answer("Напоминание удалено", show_alert=True)
     await callback_query.message.delete()
 
@@ -46,7 +46,7 @@ async def process_timezone(callback_query: CallbackQuery,
         callback_query.from_user.username,
         callback_query.data
     )
-    db.create_user(data)
+    await db.create_user(data)
     await callback_query.message.delete()
     await callback_query.message.answer("Вы можете оставить текст, дату "
                                         "и время для напоминания. "
@@ -60,15 +60,15 @@ async def process_callback(callback_query: CallbackQuery, state: FSMContext):
     """Хендлер выбора типа напоминания"""
 
     data = await state.get_data()
+    replay = False
+    cron = False
+
     if callback_query.data == "С заданным промежутком":
         replay = True
-    else:
-        replay = False
-    if callback_query.data == "Каждый день в это время":
+    elif callback_query.data == "Каждый день в это время":
         cron = True
-    else:
-        cron = False
-    db.scheduler_add_job(callback_query.from_user.id,
+
+    await db.scheduler_add_job(callback_query.from_user.id,
                          data["reminder_text"],
                          data["date_and_time"],
                          data["interval"],
