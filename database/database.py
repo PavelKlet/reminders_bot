@@ -255,11 +255,10 @@ class Database:
         """Метод удаления напоминаний из базы данных"""
 
         async with self.pool.acquire() as connection:
-            async with connection.transaction():
-                query = "DELETE FROM reminders WHERE uniq_code = $1"
-                await connection.execute(query, reminder_code)
-
             if not cron:
+                async with connection.transaction():
+                    query = "DELETE FROM reminders WHERE uniq_code = $1"
+                    await connection.execute(query, reminder_code)
                 try:
                     scheduler.remove_job(reminder_code)
                 except JobLookupError:

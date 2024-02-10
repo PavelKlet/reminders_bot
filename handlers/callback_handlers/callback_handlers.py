@@ -69,12 +69,12 @@ async def process_callback(callback_query: CallbackQuery, state: FSMContext):
         cron = True
 
     await db.scheduler_add_job(callback_query.from_user.id,
-                         data["reminder_text"],
-                         data["date_and_time"],
-                         data["interval"],
-                         replay,
-                         cron
-                         )
+                               data["reminder_text"],
+                               data["date_and_time"],
+                               data["interval"],
+                               replay,
+                               cron
+                               )
     await callback_query.message.answer("Напоминание поставлено.")
     await callback_query.message.delete()
     await state.clear()
