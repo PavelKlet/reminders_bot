@@ -17,10 +17,10 @@ async def on_start():
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    # handler = RotatingFileHandler("app.log", maxBytes=100000, backupCount=3)
-    # logging.basicConfig(handlers=[handler], level=logging.INFO,
-    #                     format="%(asctime)s - %(name)s -"
-    #                            " %(levelname)s - %(message)s")
+    handler = RotatingFileHandler("app.log", maxBytes=100000, backupCount=3)
+    logging.basicConfig(handlers=[handler], level=logging.INFO,
+                        format="%(asctime)s - %(name)s -"
+                               " %(levelname)s - %(message)s")
     loop = asyncio.get_event_loop()
     bot_task = loop.create_task(on_start())
     loop.run_forever()
