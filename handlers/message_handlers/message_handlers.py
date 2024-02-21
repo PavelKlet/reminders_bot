@@ -7,7 +7,7 @@ from datetime import datetime
 from aiogram import Router
 from state.states import Form
 from database.database import db
-from keyboards.keyboards import type_reminder, keyboard_time_zones
+from keyboards.keyboards import Keyboards
 from pytz import timezone
 from aiogram.utils.keyboard import InlineKeyboardButton, InlineKeyboardBuilder
 
@@ -23,7 +23,7 @@ async def cmd_timezone(message: types.Message, state: FSMContext):
     if await db.check_user(message.from_user.id):
         await message.answer(
             "Выберите один из вариантов:",
-            reply_markup=keyboard_time_zones.as_markup()
+            reply_markup=Keyboards.timezone_keyboard().as_markup()
         )
         await state.set_state(Form.switch_timezone)
 
@@ -45,7 +45,9 @@ async def cmd_delete(message: types.Message, state: FSMContext):
 
     full_reminders = await db.get_reminders(message.from_user.id)
     if full_reminders:
+
         builder = InlineKeyboardBuilder()
+
         for reminder, uniq_code, cron in full_reminders:
             if not cron:
                 builder.row(
@@ -61,6 +63,7 @@ async def cmd_delete(message: types.Message, state: FSMContext):
                         text=reminder
                     )
                 )
+
         await message.answer(f"Выберите ваше напоминание для отмены:\n",
                              reply_markup=builder.as_markup())
         del builder
@@ -76,11 +79,12 @@ async def cmd_start(message: types.Message, state: FSMContext):
 
     user_id = message.from_user.id
     user = await db.check_user(user_id)
+
     if not user:
         await message.answer(
             "Привет! Для начала нужно определить ваш часовой пояс, "
             "выберите один из вариантов:",
-            reply_markup=keyboard_time_zones.as_markup()
+            reply_markup=Keyboards.timezone_keyboard().as_markup()
         )
         await state.set_state(Form.time_zone)
     else:
@@ -117,17 +121,20 @@ async def handle_date(message: types.Message, state: FSMContext):
     """Хендлер полученной даты"""
 
     try:
+
         user_timezone = await db.select_time_zone(message.from_user.id)
         local_tz = timezone(user_timezone)
         date_and_time = local_tz.localize(
             datetime.strptime(message.text, "%d.%m.%Y %H %M"))
         current_date = datetime.now(timezone(user_timezone))
+
         if current_date >= date_and_time:
             raise DateError("Дата раньше настоящего времени.")
         await message.answer("Выберите вид напоминания.",
-                             reply_markup=type_reminder.as_markup()
+                             reply_markup=Keyboards.type_keyboard().as_markup()
                              )
         interval = date_and_time - current_date
+
         await state.update_data(date_and_time=date_and_time, interval=interval)
         await state.set_state(Form.type_reminder)
     except Exception as ex:

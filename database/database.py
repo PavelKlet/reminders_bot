@@ -63,7 +63,9 @@ class Database:
         """Метод отправки уведомлений пользователю"""
 
         try:
+
             await bot.send_message(user_id, text)
+
             if replay:
                 (pk, user_pk, reminder_text,
                  reminder_date, interval,
@@ -97,6 +99,7 @@ class Database:
             result = await connection.fetch(query)
 
             for row in result:
+
                 reminder_date = row["scheduled_time"]
                 reminder_text = row["reminder_text"]
                 user_id = row["user_id"]
@@ -151,6 +154,7 @@ class Database:
         """Метод добавления задач в scheduler"""
 
         async with self.pool.acquire() as connection:
+
             user_pk_query = "SELECT id, timezone FROM users WHERE user_id = $1"
             pk_user, u_timezone = await connection.fetchrow(user_pk_query,
                                                             user_id)
@@ -182,6 +186,7 @@ class Database:
 
             (scheduled_time, user_pk,
              interval_data, reminder_text, replay, cron) = row.values()
+
             if cron:
                 trigger = CronTrigger(
                     hour=scheduled_time.hour,

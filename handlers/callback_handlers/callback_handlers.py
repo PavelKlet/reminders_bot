@@ -2,6 +2,7 @@ from aiogram.filters import StateFilter
 from aiogram.types import CallbackQuery
 from aiogram import Router
 from aiogram.fsm.context import FSMContext
+
 from database.database import db
 from state.states import Form
 
@@ -25,6 +26,7 @@ async def process_delete_reminder(callback_query: CallbackQuery):
     """Хендлер удаления напоминания"""
 
     uniq_code, type_reminder = callback_query.data.split(":")
+
     if type_reminder == "cron":
         await db.delete_reminder(uniq_code, cron=False)
     else:
@@ -46,6 +48,7 @@ async def process_timezone(callback_query: CallbackQuery,
         callback_query.from_user.username,
         callback_query.data
     )
+
     await db.create_user(data)
     await callback_query.message.delete()
     await callback_query.message.answer("Вы можете оставить текст, дату "
@@ -60,6 +63,7 @@ async def process_callback(callback_query: CallbackQuery, state: FSMContext):
     """Хендлер выбора типа напоминания"""
 
     data = await state.get_data()
+
     replay = False
     cron = False
 
@@ -75,6 +79,7 @@ async def process_callback(callback_query: CallbackQuery, state: FSMContext):
                                replay,
                                cron
                                )
+
     await callback_query.message.answer("Напоминание поставлено.")
     await callback_query.message.delete()
     await state.clear()
