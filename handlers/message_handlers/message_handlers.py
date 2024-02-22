@@ -1,10 +1,11 @@
 import logging
+from datetime import datetime
 
 from aiogram import types
 from aiogram.filters import CommandStart, StateFilter, Command
 from aiogram.fsm.context import FSMContext
-from datetime import datetime
 from aiogram import Router
+
 from state.states import Form
 from database.database import db
 from keyboards.keyboards import Keyboards
@@ -66,7 +67,6 @@ async def cmd_delete(message: types.Message, state: FSMContext):
 
         await message.answer(f"Выберите ваше напоминание для отмены:\n",
                              reply_markup=builder.as_markup())
-        del builder
         await state.set_state(Form.delete_reminder)
     else:
         await message.answer("У вас ещё нет напоминаний.")
