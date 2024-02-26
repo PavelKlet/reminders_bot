@@ -1,4 +1,6 @@
+from typing import Optional, List, Tuple
 from pytz import timezone
+from datetime import datetime, timedelta
 
 import asyncpg
 import uuid
@@ -32,10 +34,10 @@ reminders = """
 
 
 class Database:
-    def __init__(self):
+    def __init__(self) -> None:
         self.pool = None
 
-    async def initialize(self):
+    async def initialize(self) -> None:
         self.pool = await asyncpg.create_pool(
             user=USER,
             password=PASSWORD,
@@ -44,7 +46,7 @@ class Database:
             port=PORT
         )
 
-    async def get_full_reminders(self):
+    async def get_full_reminders(self) -> Optional[List[asyncpg.Record]]:
 
         """Метод получения всех напоминаний"""
 
@@ -62,13 +64,13 @@ class Database:
 
     async def add_reminder(
             self,
-            user_id,
-            text,
-            scheduled_time,
-            interval,
-            replay,
-            cron
-    ):
+            user_id: int,
+            text: str,
+            scheduled_time: datetime,
+            interval: timedelta,
+            replay: bool,
+            cron: bool
+    ) -> Tuple[datetime, timezone, bool, int, str, str, bool, str]:
 
         """Метод добавления напоминаний в бд"""
 
@@ -107,7 +109,7 @@ class Database:
             return (scheduled_time, local_tz, cron,
                     user_id, text, new_uuid, replay, u_timezone)
 
-    async def create_user(self, data):
+    async def create_user(self, data: tuple) -> None:
 
         """Метод создания пользователя"""
 
@@ -119,7 +121,7 @@ class Database:
             """
             await connection.execute(query, *data)
 
-    async def check_user(self, user_id):
+    async def check_user(self, user_id) -> Optional[asyncpg.Record]:
 
         """Метод проверки пользователя"""
 
@@ -129,22 +131,23 @@ class Database:
             """
             return await connection.fetchrow(query, user_id)
 
-    async def get_reminders(self, user_id):
+    async def get_reminders(self,
+                            user_id: int) -> Optional[List[asyncpg.Record]]:
 
         """Метод получения напоминаний из базы данных"""
 
         async with self.pool.acquire() as connection:
             query = """
                 SELECT reminders.reminder_text, 
-                reminders.uniq_code, 
-                reminders.cron
+                reminders.uniq_code
                 FROM reminders
                 JOIN users ON reminders.user_id = users.id
                 WHERE users.user_id = $1
             """
             return await connection.fetch(query, user_id)
 
-    async def get_reminder(self, reminder_code):
+    async def get_reminder(self,
+                           reminder_code: str) -> Optional[asyncpg.Record]:
 
         """Метод получения напоминания из базы данных"""
 
@@ -152,7 +155,8 @@ class Database:
             query = "SELECT * FROM reminders WHERE uniq_code = $1"
             return await connection.fetchrow(query, reminder_code)
 
-    async def delete_reminder(self, reminder_code, cron=False):
+    async def delete_reminder(self, reminder_code: str,
+                              cron: bool = False) -> None:
 
         """Метод удаления напоминаний из базы данных"""
         if not cron:
@@ -161,7 +165,8 @@ class Database:
                     query = "DELETE FROM reminders WHERE uniq_code = $1"
                     await connection.execute(query, reminder_code)
 
-    async def select_time_zone(self, user_id):
+    async def select_time_zone(self,
+                               user_id: int) -> str | None:
 
         """Метод получения часового пояса из базы данных"""
 
@@ -170,7 +175,7 @@ class Database:
             row = await connection.fetchrow(query, user_id)
             return row[0] if row else None
 
-    async def update_timezone(self, user_id, u_timezone):
+    async def update_timezone(self, user_id: int, u_timezone: str) -> None:
 
         """Метод обновления часового пояса в базе данных"""
 

@@ -30,7 +30,7 @@ async def cmd_timezone(message: types.Message, state: FSMContext):
 
 
 @router.message(Command("help"))
-async def cmd_delete(message: types.Message):
+async def cmd_help(message: types.Message):
 
     """Хендлер команды /help"""
 
@@ -49,21 +49,13 @@ async def cmd_delete(message: types.Message, state: FSMContext):
 
         builder = InlineKeyboardBuilder()
 
-        for reminder, uniq_code, cron in full_reminders:
-            if not cron:
-                builder.row(
-                    InlineKeyboardButton(
-                        callback_data=f"{uniq_code}:date",
-                        text=reminder
-                    )
+        for reminder, uniq_code in full_reminders:
+            builder.row(
+                InlineKeyboardButton(
+                    callback_data=uniq_code,
+                    text=reminder
                 )
-            else:
-                builder.row(
-                    InlineKeyboardButton(
-                        callback_data=f"{uniq_code}:cron",
-                        text=reminder
-                    )
-                )
+            )
 
         await message.answer(f"Выберите ваше напоминание для отмены:\n",
                              reply_markup=builder.as_markup())

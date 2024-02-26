@@ -26,7 +26,7 @@ async def process_delete_reminder(callback_query: CallbackQuery):
 
     """Хендлер удаления напоминания"""
 
-    uniq_code, type_reminder = callback_query.data.split(":")
+    uniq_code = callback_query.data
 
     await db.delete_reminder(uniq_code, cron=False)
     await reminder_manager.delete_job(uniq_code, cron=False)

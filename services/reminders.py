@@ -1,4 +1,7 @@
 import datetime
+from typing import Optional, List
+import asyncpg
+import pytz
 from pytz import timezone
 import logging
 
@@ -14,13 +17,13 @@ class ReminderManager(object):
 
     async def send_notification(
             self,
-            user_id,
-            text,
-            reminder_code,
-            replay,
-            cron,
-            u_timezone
-    ):
+            user_id: int,
+            text: str,
+            reminder_code: str,
+            replay: bool,
+            cron: bool,
+            u_timezone: str
+    ) -> None:
 
         """Метод отправки уведомлений пользователю"""
 
@@ -51,8 +54,10 @@ class ReminderManager(object):
         except Exception as e:
             logging.error(f"Ошибка при отправке уведомления: {e}")
 
-    async def scheduler_add_job(self, scheduled_time, local_tz, cron,
-                                user_id, text, new_uuid, replay, u_timezone):
+    async def scheduler_add_job(self, scheduled_time: datetime,
+                                local_tz: pytz.timezone, cron: bool,
+                                user_id: int, text: str, new_uuid: str,
+                                replay: bool, u_timezone: str) -> None:
 
         """Метод добавления задач в scheduler"""
 
@@ -80,7 +85,8 @@ class ReminderManager(object):
             id=new_uuid
         )
 
-    async def start_up(self, reminders_info):
+    async def start_up(self,
+                       reminders_info: Optional[List[asyncpg.Record]]) -> None:
 
         """Метод запуска всех напоминаний из бд"""
 
@@ -109,7 +115,7 @@ class ReminderManager(object):
         scheduler.start()
 
     @staticmethod
-    async def delete_job(code, cron=False):
+    async def delete_job(code: str, cron: bool = False) -> None:
 
         """Удаление задач планировщика"""
 
