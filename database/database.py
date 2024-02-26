@@ -1,15 +1,9 @@
-import datetime
-import logging
-
-import asyncpg
-from apscheduler.jobstores.base import JobLookupError
-from apscheduler.triggers.date import DateTrigger
-from apscheduler.triggers.cron import CronTrigger
 from pytz import timezone
 
-from config_data.config import USER, DBNAME, HOST, PASSWORD, PORT
-from loader import scheduler, bot
+import asyncpg
 import uuid
+
+from config_data.config import USER, DBNAME, HOST, PASSWORD, PORT
 
 users = """
 CREATE TABLE users (
@@ -50,43 +44,9 @@ class Database:
             port=PORT
         )
 
-    async def send_notification(
-            self,
-            user_id,
-            text,
-            reminder_code,
-            replay,
-            cron,
-            u_timezone
-    ):
+    async def get_full_reminders(self):
 
-        """Метод отправки уведомлений пользователю"""
-
-        try:
-
-            await bot.send_message(user_id, text)
-
-            if replay:
-                (pk, user_pk, reminder_text,
-                 reminder_date, interval,
-                 uniq_code, replay, cron) = await self.get_reminder(reminder_code)
-                date_and_time = (
-                        datetime.datetime.now(timezone(u_timezone)) + interval
-                )
-                await self.scheduler_add_job(
-                    user_id, reminder_text,
-                    date_and_time,
-                    interval,
-                    replay,
-                    cron
-                )
-            await self.delete_reminder(reminder_code, cron=cron)
-        except Exception as e:
-            logging.error(f"Ошибка при отправке уведомления: {e}")
-
-    async def start_up(self):
-
-        """Метод для запуска всех напоминаний при запуске бота"""
+        """Метод получения всех напоминаний"""
 
         async with self.pool.acquire() as connection:
             query = """
@@ -98,50 +58,9 @@ class Database:
                 """
             result = await connection.fetch(query)
 
-            for row in result:
+            return result
 
-                reminder_date = row["scheduled_time"]
-                reminder_text = row["reminder_text"]
-                user_id = row["user_id"]
-                u_timezone = row["timezone"]
-                uniq_code = row["uniq_code"]
-                replay = row["replay"]
-                cron = row["cron"]
-                local_tz = timezone(u_timezone)
-                date_and_time = local_tz.localize(reminder_date)
-
-                if (datetime.datetime.now(
-                        timezone(u_timezone)) >= date_and_time) and not cron:
-                    await connection.execute("DELETE FROM reminders "
-                                             "WHERE uniq_code=$1",
-                                             uniq_code)
-                else:
-                    if cron:
-                        trigger = CronTrigger(
-                            hour=reminder_date.hour,
-                            minute=reminder_date.minute,
-                            timezone=local_tz
-                        )
-                    else:
-                        trigger = DateTrigger(run_date=date_and_time)
-
-                    scheduler.add_job(
-                        self.send_notification,
-                        trigger=trigger,
-                        args=[
-                            user_id,
-                            reminder_text,
-                            uniq_code,
-                            replay,
-                            cron,
-                            u_timezone
-                        ],
-                        id=uniq_code
-                    )
-
-        scheduler.start()
-
-    async def scheduler_add_job(
+    async def add_reminder(
             self,
             user_id,
             text,
@@ -151,7 +70,7 @@ class Database:
             cron
     ):
 
-        """Метод добавления задач в scheduler"""
+        """Метод добавления напоминаний в бд"""
 
         async with self.pool.acquire() as connection:
 
@@ -167,8 +86,7 @@ class Database:
                 interval_data, reminder_text,
                 uniq_code, replay, cron)
                 VALUES (timezone($1, $2), $3, $4, $5, $6, $7, $8)
-                RETURNING scheduled_time, user_id,
-                interval_data, reminder_text, replay, cron
+                RETURNING scheduled_time, replay, cron
             """
 
             params = (
@@ -184,31 +102,10 @@ class Database:
 
             row = await connection.fetchrow(insert_query, *params)
 
-            (scheduled_time, user_pk,
-             interval_data, reminder_text, replay, cron) = row.values()
+            (scheduled_time, replay, cron) = row.values()
 
-            if cron:
-                trigger = CronTrigger(
-                    hour=scheduled_time.hour,
-                    minute=scheduled_time.minute,
-                    timezone=local_tz
-                )
-            else:
-                date_and_time = local_tz.localize(scheduled_time)
-                trigger = DateTrigger(run_date=date_and_time)
-            scheduler.add_job(
-                self.send_notification,
-                trigger=trigger,
-                args=[
-                    user_id,
-                    text,
-                    new_uuid,
-                    replay,
-                    cron,
-                    u_timezone
-                ],
-                id=new_uuid
-            )
+            return (scheduled_time, local_tz, cron,
+                    user_id, text, new_uuid, replay, u_timezone)
 
     async def create_user(self, data):
 
@@ -258,16 +155,11 @@ class Database:
     async def delete_reminder(self, reminder_code, cron=False):
 
         """Метод удаления напоминаний из базы данных"""
-
-        async with self.pool.acquire() as connection:
-            if not cron:
+        if not cron:
+            async with self.pool.acquire() as connection:
                 async with connection.transaction():
                     query = "DELETE FROM reminders WHERE uniq_code = $1"
                     await connection.execute(query, reminder_code)
-                try:
-                    scheduler.remove_job(reminder_code)
-                except JobLookupError:
-                    pass
 
     async def select_time_zone(self, user_id):
 

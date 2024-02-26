@@ -1,16 +1,16 @@
 import logging
 from datetime import datetime
+from pytz import timezone
 
 from aiogram import types
 from aiogram.filters import CommandStart, StateFilter, Command
 from aiogram.fsm.context import FSMContext
 from aiogram import Router
+from aiogram.utils.keyboard import InlineKeyboardButton, InlineKeyboardBuilder
 
 from state.states import Form
 from database.database import db
 from keyboards.keyboards import Keyboards
-from pytz import timezone
-from aiogram.utils.keyboard import InlineKeyboardButton, InlineKeyboardBuilder
 
 router = Router(name=__name__)
 
@@ -30,7 +30,7 @@ async def cmd_timezone(message: types.Message, state: FSMContext):
 
 
 @router.message(Command("help"))
-async def cmd_delete(message: types.Message, state: FSMContext):
+async def cmd_delete(message: types.Message):
 
     """Хендлер команды /help"""
 

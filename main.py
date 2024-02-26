@@ -6,13 +6,15 @@ from loader import bot, dp
 from handlers.message_handlers import message_handlers
 from handlers.callback_handlers import callback_handlers
 from database.database import db
+from services.reminders import reminder_manager
 
 
 async def on_start():
     dp.include_router(message_handlers.router)
     dp.include_router(callback_handlers.router)
     await db.initialize()
-    await db.start_up()
+    full_reminders = await db.get_full_reminders()
+    await reminder_manager.start_up(full_reminders)
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 

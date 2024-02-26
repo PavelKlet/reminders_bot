@@ -5,6 +5,7 @@ from aiogram.fsm.context import FSMContext
 
 from database.database import db
 from state.states import Form
+from services.reminders import reminder_manager
 
 router = Router(name=__name__)
 
@@ -27,10 +28,9 @@ async def process_delete_reminder(callback_query: CallbackQuery):
 
     uniq_code, type_reminder = callback_query.data.split(":")
 
-    if type_reminder == "cron":
-        await db.delete_reminder(uniq_code, cron=False)
-    else:
-        await db.delete_reminder(uniq_code)
+    await db.delete_reminder(uniq_code, cron=False)
+    await reminder_manager.delete_job(uniq_code, cron=False)
+
     await callback_query.answer("Напоминание удалено", show_alert=True)
     await callback_query.message.delete()
 
@@ -72,13 +72,14 @@ async def process_callback(callback_query: CallbackQuery, state: FSMContext):
     elif callback_query.data == "Каждый день в это время":
         cron = True
 
-    await db.scheduler_add_job(callback_query.from_user.id,
-                               data["reminder_text"],
-                               data["date_and_time"],
-                               data["interval"],
-                               replay,
-                               cron
-                               )
+    reminder_info = await db.add_reminder(callback_query.from_user.id,
+                                          data["reminder_text"],
+                                          data["date_and_time"],
+                                          data["interval"],
+                                          replay,
+                                          cron
+                                          )
+    await reminder_manager.scheduler_add_job(*reminder_info)
 
     await callback_query.message.answer("Напоминание поставлено.")
     await callback_query.message.delete()
