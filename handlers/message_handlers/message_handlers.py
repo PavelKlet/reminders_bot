@@ -10,7 +10,8 @@ from aiogram.utils.keyboard import InlineKeyboardButton, InlineKeyboardBuilder
 
 from state.states import Form
 from database.database import db
-from keyboards.keyboards import Keyboards
+from keyboards.timezone import timezone_keyboard
+from keyboards.type import type_keyboard
 
 router = Router(name=__name__)
 
@@ -24,7 +25,7 @@ async def cmd_timezone(message: types.Message, state: FSMContext):
     if await db.check_user(message.from_user.id):
         await message.answer(
             "Выберите один из вариантов:",
-            reply_markup=Keyboards.timezone_keyboard().as_markup()
+            reply_markup=timezone_keyboard().as_markup()
         )
         await state.set_state(Form.switch_timezone)
 
@@ -45,6 +46,7 @@ async def cmd_delete(message: types.Message, state: FSMContext):
     """Хендлер команды /delete"""
 
     full_reminders = await db.get_reminders(message.from_user.id)
+
     if full_reminders:
 
         builder = InlineKeyboardBuilder()
@@ -76,7 +78,7 @@ async def cmd_start(message: types.Message, state: FSMContext):
         await message.answer(
             "Привет! Для начала нужно определить ваш часовой пояс, "
             "выберите один из вариантов:",
-            reply_markup=Keyboards.timezone_keyboard().as_markup()
+            reply_markup=timezone_keyboard().as_markup()
         )
         await state.set_state(Form.time_zone)
     else:
@@ -123,7 +125,7 @@ async def handle_date(message: types.Message, state: FSMContext):
         if current_date >= date_and_time:
             raise DateError("Дата раньше настоящего времени.")
         await message.answer("Выберите вид напоминания.",
-                             reply_markup=Keyboards.type_keyboard().as_markup()
+                             reply_markup=type_keyboard().as_markup()
                              )
         interval = date_and_time - current_date
 
