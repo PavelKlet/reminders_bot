@@ -71,6 +71,8 @@ async def cmd_start(message: types.Message, state: FSMContext):
 
     """Хендлер команды /start"""
 
+    await state.set_data({})
+
     user_id = message.from_user.id
     user = await db.check_user(user_id)
 
