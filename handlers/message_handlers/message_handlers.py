@@ -20,7 +20,7 @@ class DateError(Exception):
     pass
 
 
-@router.message(Command("timezone"))
+@router.message(Command("timezone"), StateFilter(None))
 async def cmd_timezone(message: types.Message, state: FSMContext):
     if await db.check_user(message.from_user.id):
         await message.answer(
@@ -30,7 +30,7 @@ async def cmd_timezone(message: types.Message, state: FSMContext):
         await state.set_state(Form.switch_timezone)
 
 
-@router.message(Command("help"))
+@router.message(Command("help"), StateFilter(None))
 async def cmd_help(message: types.Message):
 
     """Хендлер команды /help"""
@@ -40,7 +40,7 @@ async def cmd_help(message: types.Message):
                          "поменять часовой пояс")
 
 
-@router.message(Command("delete"))
+@router.message(Command("delete"), StateFilter(None))
 async def cmd_delete(message: types.Message, state: FSMContext):
 
     """Хендлер команды /delete"""
