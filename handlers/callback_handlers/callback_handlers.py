@@ -22,7 +22,7 @@ async def process_switch_timezone(
 
 
 @router.callback_query(StateFilter(Form.delete_reminder))
-async def process_delete_reminder(callback_query: CallbackQuery):
+async def process_delete_reminder(callback_query: CallbackQuery, state: FSMContext):
 
     """Хендлер удаления напоминания"""
 
@@ -33,6 +33,7 @@ async def process_delete_reminder(callback_query: CallbackQuery):
 
     await callback_query.answer("Напоминание удалено", show_alert=True)
     await callback_query.message.delete()
+    await state.clear()
 
 
 @router.callback_query(StateFilter(Form.time_zone))
