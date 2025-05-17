@@ -20,8 +20,9 @@ class DateError(Exception):
     pass
 
 
-@router.message(Command("timezone"), StateFilter(None))
+@router.message(Command("timezone"), StateFilter("*"))
 async def cmd_timezone(message: types.Message, state: FSMContext):
+    await state.clear()
     if await db.check_user(message.from_user.id):
         await message.answer(
             "Выберите один из вариантов:",
@@ -70,7 +71,6 @@ async def cmd_delete(message: types.Message, state: FSMContext):
 async def cmd_start(message: types.Message, state: FSMContext):
 
     """Хендлер команды /start"""
-
     await state.set_data({})
 
     user_id = message.from_user.id
